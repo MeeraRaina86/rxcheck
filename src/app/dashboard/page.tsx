@@ -1,9 +1,9 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, collection, getDocs, orderBy, query, limit, startAfter, DocumentData, endBefore, limitToLast } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, limit, startAfter, DocumentData, endBefore, limitToLast, QuerySnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
@@ -32,8 +32,22 @@ export default function DashboardPage() {
   const [isFirstPage, setIsFirstPage] = useState(true);
   const [isLastPage, setIsLastPage] = useState(false);
 
+  // Helper function to update state after fetching
+  const updatePageState = useCallback((documentSnapshots: QuerySnapshot<DocumentData>) => {
+    if (!documentSnapshots.empty) {
+      const reportsData = documentSnapshots.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as Report[];
+      setReports(reportsData);
+      setFirstVisible(documentSnapshots.docs[0]);
+      setLastVisible(documentSnapshots.docs[documentSnapshots.docs.length - 1]);
+      setIsLastPage(documentSnapshots.docs.length < 5);
+    } else {
+      setIsLastPage(true);
+    }
+    setLoading(false);
+  }, []);
+
   // Function to fetch reports for the first page
-  const fetchFirstPage = async (userId: string) => {
+  const fetchFirstPage = useCallback(async (userId: string) => {
     setLoading(true);
     const reportsQuery = query(
       collection(db, 'profiles', userId, 'reports'),
@@ -43,7 +57,7 @@ export default function DashboardPage() {
     const documentSnapshots = await getDocs(reportsQuery);
     updatePageState(documentSnapshots);
     setIsFirstPage(true);
-  };
+  }, [updatePageState]);
 
   // Function to fetch the next page of reports
   const fetchNextPage = async (userId: string) => {
@@ -73,20 +87,6 @@ export default function DashboardPage() {
     const documentSnapshots = await getDocs(reportsQuery);
     updatePageState(documentSnapshots);
   };
-
-  // Helper function to update state after fetching
-  const updatePageState = (documentSnapshots: any) => {
-    if (!documentSnapshots.empty) {
-      const reportsData = documentSnapshots.docs.map((doc: any) => ({ ...doc.data(), id: doc.id })) as Report[];
-      setReports(reportsData);
-      setFirstVisible(documentSnapshots.docs[0]);
-      setLastVisible(documentSnapshots.docs[documentSnapshots.docs.length - 1]);
-      setIsLastPage(documentSnapshots.docs.length < 5);
-    } else {
-      setIsLastPage(true);
-    }
-    setLoading(false);
-  };
   
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -105,17 +105,32 @@ export default function DashboardPage() {
       }
     });
     return () => unsubscribeAuth();
-  }, [router]);
+  }, [router, fetchFirstPage]);
 
-  if (loading) {
+  if (loading || !userProfile) {
     return <div className="text-center p-10">Loading Dashboard...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Dashboard</h1>
-      {/* Profile Card remains the same */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">...</div>
+      
+      {/* Profile Details Card */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 className="text-2xl font-semibold mb-4 border-b pb-2">Health Profile</h2>
+        <div className="grid grid-cols-2 gap-4 text-gray-700">
+          <p><strong>Email:</strong> {user?.email}</p>
+          <p><strong>Age:</strong> {userProfile.age} years</p>
+          <p><strong>Weight:</strong> {userProfile.weight} kg</p>
+          <p><strong>Height:</strong> {userProfile.height} cm</p>
+          <p className="col-span-2"><strong>Your Conditions:</strong> {userProfile.conditions}</p>
+          <p className="col-span-2"><strong>Your Allergies:</strong> {userProfile.allergies}</p>
+          <p className="col-span-2"><strong>Family History:</strong> {userProfile.familyHistory || 'Not provided'}</p>
+        </div>
+        <button onClick={() => router.push('/profile')} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">
+          Edit Profile
+        </button>
+      </div>
 
       {/* Analysis History Section */}
       <div className="bg-white p-6 rounded-lg shadow-md">
