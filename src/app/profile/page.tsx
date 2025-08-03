@@ -17,7 +17,6 @@ export default function ProfilePage() {
   const [height, setHeight] = useState('');
   const [conditions, setConditions] = useState('');
   const [allergies, setAllergies] = useState('');
-  // New state for family history
   const [familyHistory, setFamilyHistory] = useState('');
 
   const [statusMessage, setStatusMessage] = useState('');
@@ -36,7 +35,7 @@ export default function ProfilePage() {
           setHeight(data.height || '');
           setConditions(data.conditions || '');
           setAllergies(data.allergies || '');
-          setFamilyHistory(data.familyHistory || ''); // Load family history
+          setFamilyHistory(data.familyHistory || '');
         }
       } else {
         router.push('/login');
@@ -59,9 +58,9 @@ export default function ProfilePage() {
         height: Number(height),
         conditions: conditions,
         allergies: allergies,
-        familyHistory: familyHistory, // Save family history
+        familyHistory: familyHistory,
         lastUpdated: new Date(),
-      }, { merge: true }); // Use merge to avoid overwriting other fields
+      }, { merge: true });
       setStatusMessage('Profile saved successfully! Redirecting...');
       
       setTimeout(() => {
@@ -112,9 +111,9 @@ export default function ProfilePage() {
           </fieldset>
           
           <fieldset className="border p-4 rounded-md">
-            <legend className="text-lg font-semibold px-2">Family & Genetic History</legend>
+            <legend className="text-lg font-semibold px-2">Family &amp; Genetic History</legend>
             <div className="mt-2">
-              <label htmlFor="familyHistory" className="block text-sm font-medium">Parent's Conditions / Genetic History</label>
+              <label htmlFor="familyHistory" className="block text-sm font-medium">Parent&apos;s Conditions / Genetic History</label>
               <textarea id="familyHistory" value={familyHistory} onChange={(e) => setFamilyHistory(e.target.value)} rows={4} placeholder="e.g., Father - Heart Disease, Mother - Diabetes Type 1" className="w-full px-3 py-2 mt-1 border rounded-md" />
             </div>
           </fieldset>

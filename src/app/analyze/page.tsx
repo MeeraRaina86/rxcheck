@@ -80,8 +80,11 @@ export default function AnalyzePage() {
       console.log('File uploaded:', data.url);
       alert(`File "${firstFile.name}" uploaded. OCR is the next step.`);
     } catch (err) {
-      if (err instanceof Error) setError(err.message);
-      else setError('An unknown error occurred during upload.');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred during upload.');
+      }
     } finally {
       setLoadingState(null); // Reset loading state
     }
@@ -135,8 +138,11 @@ export default function AnalyzePage() {
       const data = await response.json();
       setAnalysisResult(data.report);
     } catch (err) {
-      if (err instanceof Error) setError(`An error occurred: ${err.message}`);
-      else setError('An unknown error occurred during analysis.');
+      if (err instanceof Error) {
+        setError(`An error occurred: ${err.message}`);
+      } else {
+        setError('An unknown error occurred during analysis.');
+      }
       console.error(err);
     } finally {
       setLoadingState(null); // Reset loading state
