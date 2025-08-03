@@ -5,8 +5,10 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { useRouter } from 'next/navigation'; // 1. Import the router
 
 export default function ProfilePage() {
+  const router = useRouter(); // 2. Initialize the router
   const [user, setUser] = useState<User | null>(null);
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
@@ -32,12 +34,10 @@ export default function ProfilePage() {
           setAllergies(data.allergies || '');
         }
       } else {
-        // No user is signed in.
-        // Optional: redirect to login page
-        window.location.href = '/login';
+        router.push('/login');
       }
     });
-  }, []);
+  }, [router]);
 
   const handleSaveProfile = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -47,7 +47,6 @@ export default function ProfilePage() {
     }
 
     try {
-      // Use the user's UID as the document ID
       await setDoc(doc(db, 'profiles', user.uid), {
         age: Number(age),
         weight: Number(weight),
@@ -56,7 +55,13 @@ export default function ProfilePage() {
         allergies: allergies,
         lastUpdated: new Date(),
       });
-      setStatusMessage('Profile saved successfully!');
+      setStatusMessage('Profile saved successfully! Redirecting...');
+      
+      // 3. Add this line to navigate to the analyze page after a short delay
+      setTimeout(() => {
+        router.push('/analyze');
+      }, 1000);
+
     } catch (error) {
       console.error('Error saving profile: ', error);
       setStatusMessage('Failed to save profile.');
