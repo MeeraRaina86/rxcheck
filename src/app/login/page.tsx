@@ -22,7 +22,7 @@ export default function LoginPage() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         alert('Successfully logged in!');
-        window.location.href = '/profile'; // Redirect after login
+        window.location.href = '/dashboard'; // Redirect to dashboard
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
         alert('Successfully signed up! Please log in.');

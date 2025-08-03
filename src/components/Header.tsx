@@ -21,19 +21,25 @@ export default function Header() {
     await signOut(auth);
     window.location.href = '/login';
   };
-
-  // Don't show header on login page
-  if (pathname === '/login') {
+  
+  if (pathname === '/login' || pathname === '/') {
     return null;
   }
 
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-white shadow-sm sticky top-0 z-10">
       <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/profile" className="text-2xl font-bold text-indigo-600">
+        <Link href="/dashboard" className="flex items-center gap-2 text-2xl font-bold text-indigo-600">
+          {/* Logo */}
+          <div className="w-8 h-8 flex items-center justify-center bg-indigo-600 rounded-full text-white">
+            R<span className="text-xl">✓</span>
+          </div>
           RxCheck
         </Link>
         <div className="flex items-center space-x-4">
+          <Link href="/dashboard" className={`text-gray-600 hover:text-indigo-600 ${pathname === '/dashboard' ? 'font-bold' : ''}`}>
+            Dashboard
+          </Link>
           <Link href="/profile" className={`text-gray-600 hover:text-indigo-600 ${pathname === '/profile' ? 'font-bold' : ''}`}>
             Profile
           </Link>
