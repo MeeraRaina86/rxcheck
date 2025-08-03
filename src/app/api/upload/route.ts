@@ -1,6 +1,6 @@
 // src/app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 
 // Configure Cloudinary with your credentials from .env.local
 cloudinary.config({
@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(bytes);
 
   try {
-    // Upload the file to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
+    // Upload the file to Cloudinary and define the result type
+    const uploadResult = await new Promise<UploadApiResponse | undefined>((resolve, reject) => {
       cloudinary.uploader.upload_stream({
         // You can add folders and other options here
       }, (error, result) => {
@@ -34,9 +34,13 @@ export async function POST(request: NextRequest) {
       }).end(buffer);
     });
 
+    if (!uploadResult) {
+      throw new Error("Cloudinary upload failed.");
+    }
+
     // We will use this URL later for OCR
     // For now, we just return it to confirm success
-    return NextResponse.json({ success: true, url: (uploadResult as any).secure_url });
+    return NextResponse.json({ success: true, url: uploadResult.secure_url });
 
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);

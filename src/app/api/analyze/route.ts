@@ -1,14 +1,13 @@
 // src/app/api/analyze/route.ts
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; // Import Firestore db
-import { doc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Removed unused 'doc'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
-    // We now expect the userId to be passed in the request
     const { userProfile, prescription, labReport, userId } = await request.json();
 
     if (!userProfile || !prescription || !labReport || !userId) {
@@ -42,7 +41,7 @@ export async function POST(request: NextRequest) {
       prescription,
       labReport,
       report: reportText,
-      createdAt: serverTimestamp(), // Adds a server-side timestamp
+      createdAt: serverTimestamp(),
     });
 
     return NextResponse.json({ report: reportText });
