@@ -26,13 +26,11 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- Pagination State ---
   const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
   const [firstVisible, setFirstVisible] = useState<DocumentData | null>(null);
   const [isFirstPage, setIsFirstPage] = useState(true);
   const [isLastPage, setIsLastPage] = useState(false);
 
-  // Helper function to update state after fetching
   const updatePageState = useCallback((documentSnapshots: QuerySnapshot<DocumentData>) => {
     if (!documentSnapshots.empty) {
       const reportsData = documentSnapshots.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as Report[];
@@ -41,64 +39,47 @@ export default function DashboardPage() {
       setLastVisible(documentSnapshots.docs[documentSnapshots.docs.length - 1]);
       setIsLastPage(documentSnapshots.docs.length < 5);
     } else {
+      setReports([]);
       setIsLastPage(true);
     }
     setLoading(false);
   }, []);
 
-  // Function to fetch reports for the first page
   const fetchFirstPage = useCallback(async (userId: string) => {
     setLoading(true);
-    const reportsQuery = query(
-      collection(db, 'profiles', userId, 'reports'),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
+    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), limit(5));
     const documentSnapshots = await getDocs(reportsQuery);
     updatePageState(documentSnapshots);
     setIsFirstPage(true);
   }, [updatePageState]);
 
-  // Function to fetch the next page of reports
-  const fetchNextPage = async (userId: string) => {
+  const fetchNextPage = useCallback(async (userId: string) => {
     if (!lastVisible) return;
     setLoading(true);
-    const reportsQuery = query(
-      collection(db, 'profiles', userId, 'reports'),
-      orderBy('createdAt', 'desc'),
-      startAfter(lastVisible),
-      limit(5)
-    );
+    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), startAfter(lastVisible), limit(5));
     const documentSnapshots = await getDocs(reportsQuery);
     updatePageState(documentSnapshots);
     setIsFirstPage(false);
-  };
+  }, [lastVisible, updatePageState]);
 
-  // Function to fetch the previous page of reports
-  const fetchPrevPage = async (userId: string) => {
+  const fetchPrevPage = useCallback(async (userId: string) => {
     if (!firstVisible) return;
     setLoading(true);
-    const reportsQuery = query(
-      collection(db, 'profiles', userId, 'reports'),
-      orderBy('createdAt', 'desc'),
-      endBefore(firstVisible),
-      limitToLast(5)
-    );
+    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), endBefore(firstVisible), limitToLast(5));
     const documentSnapshots = await getDocs(reportsQuery);
     updatePageState(documentSnapshots);
-  };
+    setIsFirstPage(true); // Logic to determine if it's truly the first page can be more complex
+  }, [firstVisible, updatePageState]);
   
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Fetch Profile
         const profileRef = doc(db, 'profiles', currentUser.uid);
         const profileSnap = await getDoc(profileRef);
         if (profileSnap.exists()) setUserProfile(profileSnap.data() as UserProfile);
         else router.push('/profile');
 
-        // Fetch initial page of reports
         fetchFirstPage(currentUser.uid);
       } else {
         router.push('/login');
@@ -115,7 +96,6 @@ export default function DashboardPage() {
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Dashboard</h1>
       
-      {/* Profile Details Card */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-2xl font-semibold mb-4 border-b pb-2">Health Profile</h2>
         <div className="grid grid-cols-2 gap-4 text-gray-700">
@@ -132,7 +112,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Analysis History Section */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold mb-4 border-b pb-2">Analysis History</h2>
         {reports.length > 0 ? (
@@ -152,7 +131,6 @@ export default function DashboardPage() {
         ) : (
           <p className="text-gray-500">Your past analysis reports will appear here.</p>
         )}
-        {/* Pagination Controls */}
         <div className="flex justify-between mt-6">
           <button onClick={() => fetchPrevPage(user!.uid)} disabled={isFirstPage} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
             Previous

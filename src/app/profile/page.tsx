@@ -5,24 +5,28 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { useRouter } from 'next/navigation'; // 1. Import the router
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
-  const router = useRouter(); // 2. Initialize the router
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  
+  // Form state
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [conditions, setConditions] = useState('');
   const [allergies, setAllergies] = useState('');
+  // New state for family history
+  const [familyHistory, setFamilyHistory] = useState('');
+
   const [statusMessage, setStatusMessage] = useState('');
 
-  // Check for logged-in user
+  // Check for logged-in user and fetch data
   useEffect(() => {
-    onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Fetch existing profile data if it exists
         const docRef = doc(db, 'profiles', currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -32,11 +36,13 @@ export default function ProfilePage() {
           setHeight(data.height || '');
           setConditions(data.conditions || '');
           setAllergies(data.allergies || '');
+          setFamilyHistory(data.familyHistory || ''); // Load family history
         }
       } else {
         router.push('/login');
       }
     });
+    return () => unsubscribe();
   }, [router]);
 
   const handleSaveProfile = async (event: React.FormEvent) => {
@@ -53,13 +59,13 @@ export default function ProfilePage() {
         height: Number(height),
         conditions: conditions,
         allergies: allergies,
+        familyHistory: familyHistory, // Save family history
         lastUpdated: new Date(),
-      });
+      }, { merge: true }); // Use merge to avoid overwriting other fields
       setStatusMessage('Profile saved successfully! Redirecting...');
       
-      // 3. Add this line to navigate to the analyze page after a short delay
       setTimeout(() => {
-        router.push('/analyze');
+        router.push('/dashboard');
       }, 1000);
 
     } catch (error) {
@@ -70,42 +76,49 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
-      </div>
+      <div className="flex items-center justify-center min-h-screen"><p>Loading...</p></div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 py-12">
       <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-3xl font-bold text-center">Your Health Profile</h1>
-        <p className="text-sm text-center text-gray-500">
-          Logged in as: {user.email}
-        </p>
         <form onSubmit={handleSaveProfile} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label htmlFor="age" className="block text-sm font-medium">Age</label>
-              <input type="number" id="age" value={age} onChange={(e) => setAge(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+          <fieldset className="border p-4 rounded-md">
+            <legend className="text-lg font-semibold px-2">Personal Details</legend>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-2">
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium">Age</label>
+                <input type="number" id="age" value={age} onChange={(e) => setAge(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="weight" className="block text-sm font-medium">Weight (kg)</label>
+                <input type="number" id="weight" value={weight} onChange={(e) => setWeight(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="height" className="block text-sm font-medium">Height (cm)</label>
+                <input type="number" id="height" value={height} onChange={(e) => setHeight(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
             </div>
-            <div>
-              <label htmlFor="weight" className="block text-sm font-medium">Weight (kg)</label>
-              <input type="number" id="weight" value={weight} onChange={(e) => setWeight(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+            <div className="mt-4">
+              <label htmlFor="conditions" className="block text-sm font-medium">Your Pre-existing Conditions</label>
+              <input type="text" id="conditions" value={conditions} onChange={(e) => setConditions(e.target.value)} placeholder="e.g., Diabetes, Hypertension" className="w-full px-3 py-2 mt-1 border rounded-md" />
             </div>
-            <div>
-              <label htmlFor="height" className="block text-sm font-medium">Height (cm)</label>
-              <input type="number" id="height" value={height} onChange={(e) => setHeight(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+            <div className="mt-4">
+              <label htmlFor="allergies" className="block text-sm font-medium">Your Allergies</label>
+              <input type="text" id="allergies" value={allergies} onChange={(e) => setAllergies(e.target.value)} placeholder="e.g., Penicillin, Peanuts" className="w-full px-3 py-2 mt-1 border rounded-md" />
             </div>
-          </div>
-          <div>
-            <label htmlFor="conditions" className="block text-sm font-medium">Pre-existing Conditions</label>
-            <input type="text" id="conditions" value={conditions} onChange={(e) => setConditions(e.target.value)} placeholder="e.g., Diabetes, Hypertension" className="w-full px-3 py-2 mt-1 border rounded-md" />
-          </div>
-          <div>
-            <label htmlFor="allergies" className="block text-sm font-medium">Allergies</label>
-            <input type="text" id="allergies" value={allergies} onChange={(e) => setAllergies(e.target.value)} placeholder="e.g., Penicillin, Peanuts" className="w-full px-3 py-2 mt-1 border rounded-md" />
-          </div>
+          </fieldset>
+          
+          <fieldset className="border p-4 rounded-md">
+            <legend className="text-lg font-semibold px-2">Family & Genetic History</legend>
+            <div className="mt-2">
+              <label htmlFor="familyHistory" className="block text-sm font-medium">Parent's Conditions / Genetic History</label>
+              <textarea id="familyHistory" value={familyHistory} onChange={(e) => setFamilyHistory(e.target.value)} rows={4} placeholder="e.g., Father - Heart Disease, Mother - Diabetes Type 1" className="w-full px-3 py-2 mt-1 border rounded-md" />
+            </div>
+          </fieldset>
+          
           <div>
             <button type="submit" className="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Save Profile</button>
           </div>
