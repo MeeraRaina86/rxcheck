@@ -16,22 +16,24 @@ export default function LoginPage() {
 
   const handleAuth = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(null); // Reset error before new attempt
+    setError(null);
 
     try {
       if (isLogin) {
-        // Sign In
         await signInWithEmailAndPassword(auth, email, password);
         alert('Successfully logged in!');
-        // Redirect user after login, e.g., router.push('/profile');
+        window.location.href = '/profile'; // Redirect after login
       } else {
-        // Sign Up
         await createUserWithEmailAndPassword(auth, email, password);
         alert('Successfully signed up! Please log in.');
-        setIsLogin(true); // Switch to login view after successful signup
+        setIsLogin(true);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred.');
+      }
     }
   };
 

@@ -6,9 +6,19 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
+// Define a type for our user profile data
+type UserProfile = {
+  age: number;
+  weight: number;
+  height: number;
+  conditions: string;
+  allergies: string;
+};
+
 export default function AnalyzePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  // Use the UserProfile type we just defined
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const [prescription, setPrescription] = useState('');
   const [labReport, setLabReport] = useState('');
@@ -24,7 +34,7 @@ export default function AnalyzePage() {
         const docRef = doc(db, 'profiles', currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setUserProfile(docSnap.data());
+          setUserProfile(docSnap.data() as UserProfile);
         } else {
           setError('Please create a health profile before running an analysis.');
         }
@@ -54,13 +64,18 @@ export default function AnalyzePage() {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       setAnalysisResult(data.report);
-    } catch (err: any) {
-      setError(`An error occurred: ${err.message}`);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(`An error occurred: ${err.message}`);
+      } else {
+        setError('An unknown error occurred during analysis.');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
