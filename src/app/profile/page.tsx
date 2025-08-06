@@ -1,190 +1,166 @@
-// src/app/dashboard/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, collection, getDocs, orderBy, query, limit, startAfter, DocumentData, endBefore, limitToLast, QuerySnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-type UserProfile = {
-  age: number; 
-  weight: number; 
-  height: number; 
-  conditions: string; 
-  allergies: string; 
-  familyHistory?: string;
-  dateOfBirth?: string;
+const countryCodes = [
+  { name: 'India', code: '+91' },
+  { name: 'USA', code: '+1' },
+  { name: 'UK', code: '+44' },
+  { name: 'Australia', code: '+61' },
+];
+
+const calculateAge = (dateString: string): number | null => {
+  if (!dateString) return null;
+  const today = new Date();
+  const birthDate = new Date(dateString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDifference = today.getMonth() - birthDate.getMonth();
+  if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
 };
 
-type Report = {
-  id: string;
-  prescription: string;
-  labReport: string;
-  report: string;
-  createdAt: { seconds: number; nanoseconds: number; };
-};
-
-export default function DashboardPage() {
+export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const reportsPerPage = 5; 
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
-  const [firstVisible, setFirstVisible] = useState<DocumentData | null>(null);
-  const [isFirstPage, setIsFirstPage] = useState(true);
-  const [isLastPage, setIsLastPage] = useState(false);
-
-  const updatePageState = useCallback((documentSnapshots: QuerySnapshot<DocumentData>) => {
-    if (!documentSnapshots.empty) {
-      const reportsData = documentSnapshots.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as Report[];
-      setReports(reportsData);
-      setFirstVisible(documentSnapshots.docs[0]);
-      setLastVisible(documentSnapshots.docs[documentSnapshots.docs.length - 1]);
-      setIsLastPage(documentSnapshots.docs.length < reportsPerPage);
-    } else {
-      setReports([]);
-      setIsLastPage(true);
-    }
-    setLoading(false);
-  }, []);
-
-  const fetchFirstPage = useCallback(async (userId: string) => {
-    setLoading(true);
-    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), limit(reportsPerPage));
-    const documentSnapshots = await getDocs(reportsQuery);
-    updatePageState(documentSnapshots);
-    setIsFirstPage(true);
-    setCurrentPage(1);
-  }, [updatePageState]);
-
-  const fetchNextPage = useCallback(async (userId: string) => {
-    if (!lastVisible) return;
-    setLoading(true);
-    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), startAfter(lastVisible), limit(reportsPerPage));
-    const documentSnapshots = await getDocs(reportsQuery);
-    updatePageState(documentSnapshots);
-    setIsFirstPage(false);
-    setCurrentPage(prev => prev + 1);
-  }, [lastVisible, updatePageState]);
-
-  const fetchPrevPage = useCallback(async (userId: string) => {
-    if (!firstVisible) return;
-    setLoading(true);
-    const reportsQuery = query(collection(db, 'profiles', userId, 'reports'), orderBy('createdAt', 'desc'), endBefore(firstVisible), limitToLast(reportsPerPage));
-    const documentSnapshots = await getDocs(reportsQuery);
-    updatePageState(documentSnapshots);
-    setIsFirstPage(currentPage === 2);
-    setCurrentPage(prev => prev - 1);
-  }, [firstVisible, updatePageState, currentPage]);
   
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [conditions, setConditions] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [familyHistory, setFamilyHistory] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [localPhoneNumber, setLocalPhoneNumber] = useState('');
+  const [callConsent, setCallConsent] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const profileRef = doc(db, 'profiles', currentUser.uid);
-        const profileSnap = await getDoc(profileRef);
-        if (profileSnap.exists()) {
-            setUserProfile(profileSnap.data() as UserProfile);
-            fetchFirstPage(currentUser.uid);
-        } else {
-            router.push('/profile');
+        const docRef = doc(db, 'profiles', currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setDateOfBirth(data.dateOfBirth || '');
+          setWeight(data.weight || '');
+          setHeight(data.height || '');
+          setConditions(data.conditions || '');
+          setAllergies(data.allergies || '');
+          setFamilyHistory(data.familyHistory || '');
+          setCallConsent(data.callConsent || false);
+          const fullPhoneNumber = data.phoneNumber || '';
+          const foundCode = countryCodes.find(c => fullPhoneNumber.startsWith(c.code));
+          if (foundCode) {
+            setCountryCode(foundCode.code);
+            setLocalPhoneNumber(fullPhoneNumber.substring(foundCode.code.length));
+          } else {
+            setLocalPhoneNumber(fullPhoneNumber);
+          }
         }
       } else {
         router.push('/login');
       }
     });
-    return () => unsubscribeAuth();
-  }, [router, fetchFirstPage]);
+    return () => unsubscribe();
+  }, [router]);
 
-  const filteredReports = useMemo(() => {
-    if (!searchTerm) {
-      return reports;
+  const handleSaveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user) {
+      setStatusMessage('You must be logged in to save a profile.');
+      return;
     }
-    return reports.filter(report => 
-      report.prescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.report.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [reports, searchTerm]);
 
-  if (loading || !userProfile) {
-    return <div className="text-center p-10">Loading Dashboard...</div>;
+    const fullPhoneNumber = callConsent ? `${countryCode}${localPhoneNumber}` : '';
+    const age = calculateAge(dateOfBirth);
+
+    try {
+      await setDoc(doc(db, 'profiles', user.uid), {
+        dateOfBirth: dateOfBirth,
+        age: age,
+        weight: Number(weight),
+        height: Number(height),
+        conditions: conditions,
+        allergies: allergies,
+        familyHistory: familyHistory,
+        phoneNumber: fullPhoneNumber,
+        callConsent: callConsent,
+        lastUpdated: new Date(),
+      }, { merge: true });
+      setStatusMessage('Profile saved successfully! Redirecting...');
+      
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error saving profile: ', error);
+      setStatusMessage('Failed to save profile.');
+    }
+  };
+
+  if (!user) {
+    return <div className="flex items-center justify-center min-h-screen"><p>Loading...</p></div>;
   }
 
-  const firstItemNumber = (currentPage - 1) * reportsPerPage + 1;
-  const lastItemNumber = firstItemNumber + filteredReports.length - 1;
-
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Dashboard</h1>
-      
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-2xl font-semibold mb-4 border-b pb-2">Health Profile</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-          <p><strong>Email:</strong> {user?.email}</p>
-          <p><strong>Age:</strong> {userProfile.age ? `${userProfile.age} years` : 'Not provided'}</p>
-          <p><strong>Weight:</strong> {userProfile.weight ? `${userProfile.weight} kg` : 'Not provided'}</p>
-          <p><strong>Height:</strong> {userProfile.height ? `${userProfile.height} cm` : 'Not provided'}</p>
-          <p className="col-span-2"><strong>Your Conditions:</strong> {userProfile.conditions || 'Not provided'}</p>
-          <p className="col-span-2"><strong>Your Allergies:</strong> {userProfile.allergies || 'Not provided'}</p>
-          <p className="col-span-2"><strong>Family History:</strong> {userProfile.familyHistory || 'Not provided'}</p>
-        </div>
-        <button onClick={() => router.push('/profile')} className="mt-6 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">
-          Edit Profile
-        </button>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex justify-between items-center mb-4 border-b pb-2">
-          <h2 className="text-2xl font-semibold">Analysis History</h2>
-          <input
-            type="text"
-            placeholder="Filter reports..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
-          />
-        </div>
-
-        {filteredReports.length > 0 ? (
-          <div className="space-y-4">
-            {filteredReports.map((report) => (
-              <details key={report.id} className="p-4 border rounded-lg">
-                <summary className="font-semibold cursor-pointer">Report from {new Date(report.createdAt.seconds * 1000).toLocaleDateString()}</summary>
-                <div className="mt-4">
-                  <h4 className="font-bold">Prescription Given:</h4>
-                  <pre className="text-sm bg-gray-50 p-2 rounded whitespace-pre-wrap font-sans">{report.prescription}</pre>
-                  <h4 className="font-bold mt-2">AI Analysis:</h4>
-                  <pre className="text-sm bg-gray-50 p-2 rounded whitespace-pre-wrap font-sans">{report.report}</pre>
-                </div>
-              </details>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500">
-            {searchTerm ? 'No reports match your filter.' : 'Your past analysis reports will appear here.'}
-          </p>
-        )}
-
-        <div className="flex justify-between items-center mt-6">
-          <button onClick={() => fetchPrevPage(user!.uid)} disabled={isFirstPage || currentPage === 1} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-            Previous
-          </button>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 py-12">
+      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-3xl font-bold text-center">Your Health Profile</h1>
+        <form onSubmit={handleSaveProfile} className="space-y-4">
           
-          {reports.length > 0 && (
-            <span className="text-sm text-gray-500">
-              Showing {firstItemNumber}-{lastItemNumber}
-            </span>
-          )}
-
-          <button onClick={() => fetchNextPage(user!.uid)} disabled={isLastPage} className="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-            Next
-          </button>
-        </div>
+          <fieldset className="border p-4 rounded-md">
+            <legend className="text-lg font-semibold px-2">Personal Details</legend>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <div>
+                <label htmlFor="dob" className="block text-sm font-medium">Date of Birth</label>
+                <input type="date" id="dob" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium">Age (auto-calculated)</label>
+                <input type="text" id="age" value={calculateAge(dateOfBirth) || ''} readOnly className="w-full px-3 py-2 mt-1 border rounded-md bg-gray-100" />
+              </div>
+              <div>
+                <label htmlFor="weight" className="block text-sm font-medium">Weight (in kg)</label>
+                <input type="number" id="weight" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g., 70" required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
+              <div>
+                <label htmlFor="height" className="block text-sm font-medium">Height (in cm)</label>
+                <input type="number" id="height" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="e.g., 175" required className="w-full px-3 py-2 mt-1 border rounded-md" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label htmlFor="conditions" className="block text-sm font-medium">Your Pre-existing Conditions</label>
+              <input type="text" id="conditions" value={conditions} onChange={(e) => setConditions(e.target.value)} placeholder="e.g., Diabetes, Hypertension" className="w-full px-3 py-2 mt-1 border rounded-md" />
+            </div>
+            <div className="mt-4">
+              <label htmlFor="allergies" className="block text-sm font-medium">Your Allergies</label>
+              <input type="text" id="allergies" value={allergies} onChange={(e) => setAllergies(e.target.value)} placeholder="e.g., Penicillin, Peanuts" className="w-full px-3 py-2 mt-1 border rounded-md" />
+            </div>
+          </fieldset>
+          
+          <fieldset className="border p-4 rounded-md">
+            <legend className="text-lg font-semibold px-2">Communication Preferences</legend>
+            {/* ... Your communication preferences JSX here ... */}
+          </fieldset>
+          
+          <fieldset className="border p-4 rounded-md">
+            <legend className="text-lg font-semibold px-2">Family &amp; Genetic History</legend>
+            {/* ... Your family history JSX here ... */}
+          </fieldset>
+          
+          <div>
+            <button type="submit" className="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Save Profile</button>
+          </div>
+          {statusMessage && <p className="text-sm text-center text-green-600">{statusMessage}</p>}
+        </form>
       </div>
     </div>
   );
