@@ -1,4 +1,3 @@
-// src/app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 
@@ -17,33 +16,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
   }
 
-  // Convert the file to a buffer
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
   try {
-    // Upload the file to Cloudinary and define the result type
+    // Upload the file to Cloudinary and use the OCR addon
     const uploadResult = await new Promise<UploadApiResponse | undefined>((resolve, reject) => {
-      cloudinary.uploader.upload_stream({
-        // You can add folders and other options here
-      }, (error, result) => {
-        if (error) {
-          reject(error);
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          // --- YAHAN BADLAV KIYA GAYA HAI ---
+          // This tells Cloudinary to run its advanced OCR service on the uploaded file.
+          ocr: 'adv_ocr', 
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary Error:', error);
+            return reject(error);
+          }
+          resolve(result);
         }
-        resolve(result);
-      }).end(buffer);
+      );
+      stream.end(buffer);
     });
 
     if (!uploadResult) {
-      throw new Error("Cloudinary upload failed.");
+      throw new Error("Cloudinary upload failed: No result returned.");
     }
 
-    // We will use this URL later for OCR
-    // For now, we just return it to confirm success
-    return NextResponse.json({ success: true, url: uploadResult.secure_url });
+    // --- RESPONSE BHI BADLA GAYA HAI ---
+    // Check if OCR data exists in the upload result
+    const ocrData = uploadResult.info?.ocr?.adv_ocr?.data;
+    let extractedText = '';
+
+    if (ocrData) {
+      // Extract the text from all the text annotations
+      extractedText = ocrData[0].fullTextAnnotation.text;
+    } else {
+      console.warn('OCR data not found in Cloudinary response for file:', uploadResult.public_id);
+    }
+
+    // Return the extracted text to the frontend
+    return NextResponse.json({ 
+      success: true, 
+      url: uploadResult.secure_url,
+      ocrText: extractedText.trim() // <-- Frontend is expecting this field
+    });
 
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    return NextResponse.json({ error: 'File upload failed.' }, { status: 500 });
+    console.error('Error in upload route:', error);
+    // Provide a more specific error message if possible
+    const errorMessage = error instanceof Error ? error.message : 'File upload or OCR failed.';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
