@@ -1,3 +1,4 @@
+// src/app/profile/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ const countryCodes = [
   { name: 'Australia', code: '+61' },
 ];
 
+// Function to calculate age from Date of Birth
 const calculateAge = (dateString: string): number | null => {
   if (!dateString) return null;
   const today = new Date();
@@ -148,12 +150,63 @@ export default function ProfilePage() {
           
           <fieldset className="border p-4 rounded-md">
             <legend className="text-lg font-semibold px-2">Communication Preferences</legend>
-            {/* ... Your communication preferences JSX here ... */}
+            <div className="mt-2 space-y-4">
+                <div className="relative flex items-start">
+                    <div className="flex h-6 items-center">
+                        <input
+                            id="callConsent"
+                            name="callConsent"
+                            type="checkbox"
+                            checked={callConsent}
+                            onChange={(e) => setCallConsent(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                        />
+                    </div>
+                    <div className="ml-3 text-sm leading-6">
+                        <label htmlFor="callConsent" className="font-medium text-gray-900">
+                            Receive a call for analysis
+                        </label>
+                        <p className="text-gray-500">I consent to receive an automated call from RxCheck to discuss my symptom analysis if it is deemed important.</p>
+                    </div>
+                </div>
+                 
+                {callConsent && (
+                    <div>
+                        <label htmlFor="phoneNumber" className="block text-sm font-medium">Phone Number</label>
+                        <div className="flex mt-1">
+                            <select
+                                name="countryCode"
+                                value={countryCode}
+                                onChange={(e) => setCountryCode(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-l-md"
+                            >
+                                {countryCodes.map(country => (
+                                    <option key={country.name} value={country.code}>
+                                        {country.name} ({country.code})
+                                    </option>
+                                ))}
+                            </select>
+                            <input 
+                                type="tel" 
+                                id="phoneNumber" 
+                                value={localPhoneNumber} 
+                                onChange={(e) => setLocalPhoneNumber(e.target.value)} 
+                                placeholder="Your phone number" 
+                                required={callConsent}
+                                className="w-full px-3 py-2 border border-l-0 border-gray-300 rounded-r-md" 
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
           </fieldset>
           
           <fieldset className="border p-4 rounded-md">
             <legend className="text-lg font-semibold px-2">Family &amp; Genetic History</legend>
-            {/* ... Your family history JSX here ... */}
+            <div className="mt-2">
+              <label htmlFor="familyHistory" className="block text-sm font-medium">Parent&apos;s Conditions / Genetic History</label>
+              <textarea id="familyHistory" value={familyHistory} onChange={(e) => setFamilyHistory(e.target.value)} rows={4} placeholder="e.g., Father - Heart Disease, Mother - Diabetes Type 1" className="w-full px-3 py-2 mt-1 border rounded-md" />
+            </div>
           </fieldset>
           
           <div>
