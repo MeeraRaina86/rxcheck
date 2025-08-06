@@ -17,23 +17,19 @@ type UserProfile = {
 
 export default function AnalyzePage() {
   const router = useRouter();
-  // Refs for separate file inputs
   const prescriptionFileInputRef = useRef<HTMLInputElement>(null);
   const labReportFileInputRef = useRef<HTMLInputElement>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // State for manual text input
   const [prescriptionText, setPrescriptionText] = useState('');
   const [labReportText, setLabReportText] = useState('');
 
-  // State for uploaded files
   const [prescriptionFiles, setPrescriptionFiles] = useState<File[]>([]);
   const [labReportFiles, setLabReportFiles] = useState<File[]>([]);
 
   const [analysisResult, setAnalysisResult] = useState('');
-  // Use a more specific loading state
   const [loadingState, setLoadingState] = useState<'prescription' | 'labReport' | 'analysis' | null>(null);
   const [error, setError] = useState('');
 
@@ -61,32 +57,39 @@ export default function AnalyzePage() {
 
     const newFiles = Array.from(files);
 
-    if (fileType === 'prescription') {
-      setPrescriptionFiles(prev => [...prev, ...newFiles]);
-    } else {
-      setLabReportFiles(prev => [...prev, ...newFiles]);
-    }
-
-    const firstFile = newFiles[0];
-    const formData = new FormData();
-    formData.append('file', firstFile);
-
-    setLoadingState(fileType); // Set loading state for the specific upload type
+    setLoadingState(fileType);
     setError('');
+
     try {
-      const response = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Upload failed');
-      console.log('File uploaded:', data.url);
-      alert(`File "${firstFile.name}" uploaded. OCR is the next step.`);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred during upload.');
+      for (const file of newFiles) {
+        if (fileType === 'prescription') {
+          setPrescriptionFiles(prev => [...prev, file]);
+        } else {
+          setLabReportFiles(prev => [...prev, file]);
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Upload failed');
+        
+        // Update the correct textarea with the OCR text
+        if (data.ocrText) {
+          if (fileType === 'prescription') {
+            setPrescriptionText(prev => `${prev}\n${data.ocrText}`.trim());
+          } else {
+            setLabReportText(prev => `${prev}\n${data.ocrText}`.trim());
+          }
+        }
       }
+      alert(`${newFiles.length} file(s) processed and text extracted successfully!`);
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unknown error occurred during upload.');
     } finally {
-      setLoadingState(null); // Reset loading state
+      setLoadingState(null);
     }
   };
   
@@ -101,22 +104,11 @@ export default function AnalyzePage() {
   const handleAnalysis = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!prescriptionText && !labReportText && prescriptionFiles.length === 0 && labReportFiles.length === 0) {
-      alert("Please provide some data to analyze, either by uploading files or entering text manually.");
+      alert("Please provide some data to analyze.");
       return;
     }
-    
-    // In a real app, you would process the uploaded files here (e.g., run OCR)
-    // and combine the text with the manual input before sending to the AI.
-    // For now, we'll just use the manual text.
-    if (prescriptionFiles.length > 0 || labReportFiles.length > 0) {
-       if (!prescriptionText || !labReportText) {
-         alert("OCR from files is not yet implemented. Please also fill in the manual text areas for analysis.");
-         return;
-       }
-    }
 
-
-    setLoadingState('analysis'); // Set loading state for analysis
+    setLoadingState('analysis');
     setError('');
     setAnalysisResult('');
 
@@ -138,14 +130,11 @@ export default function AnalyzePage() {
       const data = await response.json();
       setAnalysisResult(data.report);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(`An error occurred: ${err.message}`);
-      } else {
-        setError('An unknown error occurred during analysis.');
-      }
+      if (err instanceof Error) setError(`An error occurred: ${err.message}`);
+      else setError('An unknown error occurred during analysis.');
       console.error(err);
     } finally {
-      setLoadingState(null); // Reset loading state
+      setLoadingState(null);
     }
   };
 
@@ -159,9 +148,7 @@ export default function AnalyzePage() {
         <h1 className="text-3xl font-bold text-gray-900 text-center">Prescription & Lab Report Analysis</h1>
         <p className="text-center text-gray-600 mt-2">Upload documents, enter data manually, or use a combination of both.</p>
 
-        {/* Upload Section */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Prescription Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Upload Prescription(s)</label>
             <input type="file" ref={prescriptionFileInputRef} onChange={(e) => handleFileChange(e, 'prescription')} className="hidden" accept="image/*,application/pdf" multiple />
@@ -177,7 +164,6 @@ export default function AnalyzePage() {
               ))}
             </div>
           </div>
-          {/* Lab Report Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Upload Lab Report(s)</label>
             <input type="file" ref={labReportFileInputRef} onChange={(e) => handleFileChange(e, 'labReport')} className="hidden" accept="image/*,application/pdf" multiple />
@@ -195,18 +181,16 @@ export default function AnalyzePage() {
           </div>
         </div>
 
-        {/* Divider */}
         <div className="my-6 flex items-center"><div className="flex-grow border-t border-gray-300"></div><span className="flex-shrink mx-4 text-gray-400">OR</span><div className="flex-grow border-t border-gray-300"></div></div>
 
-        {/* Manual Input Form */}
         <form onSubmit={handleAnalysis} className="space-y-6">
           <div>
-            <label htmlFor="prescription" className="block text-sm font-medium text-gray-700">Enter Prescription Manually</label>
-            <textarea id="prescription" rows={6} value={prescriptionText} onChange={(e) => setPrescriptionText(e.target.value)} placeholder="e.g.,&#10;- Metformin 500mg..." className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm" />
+            <label htmlFor="prescription" className="block text-sm font-medium text-gray-700">Enter/Edit Prescription Text</label>
+            <textarea id="prescription" rows={6} value={prescriptionText} onChange={(e) => setPrescriptionText(e.target.value)} placeholder="Text from uploaded files will appear here..." className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm" />
           </div>
           <div>
-            <label htmlFor="labReport" className="block text-sm font-medium text-gray-700">Enter Lab Report Manually</label>
-            <textarea id="labReport" rows={6} value={labReportText} onChange={(e) => setLabReportText(e.target.value)} placeholder="e.g.,&#10;Blood Sugar (Fasting): 180 mg/dL..." className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm" />
+            <label htmlFor="labReport" className="block text-sm font-medium text-gray-700">Enter/Edit Lab Report Text</label>
+            <textarea id="labReport" rows={6} value={labReportText} onChange={(e) => setLabReportText(e.target.value)} placeholder="Text from uploaded files will appear here..." className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm" />
           </div>
           <div>
             <button type="submit" disabled={!!loadingState || !userProfile} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400">
