@@ -59,9 +59,10 @@ export default function SymptomAnalyzerPage() {
       setAnalysisResult(data.analysis || "");
       
       if (data.callData && data.callData.access_token) {
+        // --- THIS IS THE FINAL CORRECTED LINE ---
+        // The Vercel build requires 'call_id' (snake_case).
         await sdk.current?.startCall({
-          // --- THIS IS THE CORRECTED LINE ---
-          callId: data.callData.call_id, // Changed from call_id to callId
+          call_id: data.callData.call_id, 
           access_token: data.callData.access_token,
         });
       }
@@ -94,7 +95,17 @@ export default function SymptomAnalyzerPage() {
 
         {isCalling && (
           <div className="my-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow text-center">
-            {/* ... Calling UI ... */}
+            <div className="flex items-center justify-center">
+                <div className="animate-pulse flex space-x-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                </div>
+                <span className="ml-4 text-blue-700 font-semibold">AI Assistant is on the line...</span>
+            </div>
+             <button onClick={endCall} className="mt-4 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                End Call
+            </button>
           </div>
         )}
 
